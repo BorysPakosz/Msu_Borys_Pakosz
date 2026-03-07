@@ -1,0 +1,102 @@
+I
+BEGIN
+   FOR rec IN (SELECT table_name FROM user_tables) LOOP
+      EXECUTE IMMEDIATE 'DROP TABLE "' || rec.table_name || '" CASCADE CONSTRAINTS';
+   END LOOP;
+END;
+/
+
+II
+CREATE TABLE employees AS SELECT * FROM hr.employees;
+CREATE TABLE departments AS SELECT * FROM hr.departments;
+CREATE TABLE jobs AS SELECT * FROM hr.jobs;
+CREATE TABLE job_history AS SELECT * FROM hr.job_history;
+CREATE TABLE job_grades AS SELECT * FROM hr.job_grades;
+CREATE TABLE locations AS SELECT * FROM hr.locations;
+CREATE TABLE countries AS SELECT * FROM hr.countries;
+CREATE TABLE regions AS SELECT * FROM hr.regions;
+
+ALTER TABLE employees ADD CONSTRAINT emp_pk PRIMARY KEY (employee_id);
+ALTER TABLE employees ADD CONSTRAINT emp_mana_fk FOREIGN KEY (manager_id) REFERENCES employees(employee_id);
+ALTER TABLE departments ADD CONSTRAINT depa_pk PRIMARY KEY (department_id);
+ALTER TABLE employees ADD CONSTRAINT emp_depa_fk FOREIGN KEY (department_id) REFERENCES departments(department_id);
+ALTER TABLE departments ADD CONSTRAINT depa_mgr_fk FOREIGN KEY (manager_id) REFERENCES employees(employee_id);
+ALTER TABLE locations ADD CONSTRAINT loca_pk PRIMARY KEY (location_id);
+ALTER TABLE departments ADD CONSTRAINT depa_loca_fk FOREIGN KEY (location_id) REFERENCES locations(location_id);
+ALTER TABLE countries ADD CONSTRAINT c_pk PRIMARY KEY (country_id);
+ALTER TABLE locations ADD CONSTRAINT loca_c_fk FOREIGN KEY (country_id) REFERENCES countries(country_id);
+ALTER TABLE regions ADD CONSTRAINT reg_pk PRIMARY KEY (region_id);
+ALTER TABLE countries ADD CONSTRAINT c_reg_fk FOREIGN KEY (region_id) REFERENCES regions(region_id);
+
+ALTER TABLE jobs ADD CONSTRAINT jobs_pk PRIMARY KEY (job_id);
+ALTER TABLE job_history ADD CONSTRAINT jobh_jobs_fk FOREIGN KEY (job_id) REFERENCES jobs(job_id);
+ALTER TABLE job_history ADD CONSTRAINT jobh_dept_fk FOREIGN KEY (department_id) REFERENCES departments(department_id);
+ALTER TABLE job_history ADD CONSTRAINT jobh_emp_fk FOREIGN KEY (employee_id) REFERENCES employees(employee_id);
+ALTER TABLE job_history ADD CONSTRAINT jobh_pk PRIMARY KEY (employee_id, start_date);
+ALTER TABLE job_grades ADD CONSTRAINT jobg_pk PRIMARY KEY (grade);
+
+III
+
+SELECT last_name || ' ' || salary AS wynagrodzenie 
+FROM employees 
+WHERE department_id IN (20, 50) AND salary BETWEEN 2000 AND 7000
+ORDER BY last_name;
+
+SELECT hire_date, last_name, salary FROM employees
+WHERE manager_id IS NOT NULL AND hire_date BETWEEN '2005/01/01' AND '2005/12/31'
+ORDER BY salary;
+
+SELECT first_name || ' ' || last_name, salary, phone_number 
+FROM employees
+WHERE last_name LIKE '__e%' and first_name LIKE '%a%' 
+ORDER BY 1 DESC, 2 ASC;
+
+SELECT first_name, last_name,
+ROUND(MONTHS_BETWEEN(SYSDATE, hire_date)) AS liczba_miesiecy,
+CASE
+WHEN MONTHS_BETWEEN(SYSDATE,hire_date) < 150 THEN salary * 0.1
+WHEN MONTHS_BETWEEN(SYSDATE,hire_date) BETWEEN 150 AND 200 THEN salary * 0.2
+ELSE salary * 0.3
+END AS wysokosc_dodatku 
+FROM employees
+ORDER BY liczba_miesiecy;
+
+SELECT department_id, 
+       SUM(salary) AS suma_zarobkow, 
+       ROUND(AVG(salary)) AS srednia_zarobkow
+FROM employees
+GROUP BY department_id
+HAVING MIN(salary) > 5000;
+
+SELECT e.last_name, e.department_id, d.department_name, e.job_id
+FROM employees e
+JOIN departments d ON e.department_id = d.department_id
+JOIN locations l ON d.location_id = l.location_id
+WHERE l.city = 'Toronto';
+
+SELECT j.first_name, j.last_name, w.first_name AS w_imie, w.last_name AS w_nazwisko
+FROM employees j
+JOIN employees w ON j.department_id = w.department_id
+WHERE j.first_name = 'Jennifer'
+AND j.employee_id != w.employee_id; 
+
+SELECT d.department_name FROM departments d
+LEFT JOIN employees e ON d.department_id = e.department_id
+WHERE e.employee_id IS NULL;
+
+SELECT e.first_name, e.last_name, e.job_id, d.department_name, e.salary, jg.grade
+FROM employees e 
+LEFT JOIN departments d ON e.department_id = d.department_id
+JOIN job_grades jg ON e.salary BETWEEN jg.min_salary AND jg.max_salary;
+
+SELECT first_name, last_name, salary
+FROM employees
+WHERE salary > (SELECT AVG(salary) FROM employees)
+ORDER BY salary DESC;
+
+SELECT employee_id, first_name, last_name
+FROM employees
+WHERE department_id IN(
+SELECT department_id 
+FROM employees 
+WHERE  last_name LIKE '%u%'); 
